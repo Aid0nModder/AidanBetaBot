@@ -1,0 +1,103 @@
+{
+    "guild_status": {
+        "default":"Basic",
+        "help":"The status of the server, determents if the server has access to additional benefits.",
+        "type":"string",
+        "restricted":true
+    },
+
+    "nitront": {
+        "default":false,
+        "help":"If users without nitro can use animated emojis in your server by typing the name.",
+        "type":"boolean"
+    },
+    
+    "mod_role": {
+        "default":false,
+        "help":"The role(s) that will determent if a member can run restricted commands.",
+        "type":"[]role"
+    },
+
+    "join_message": {
+        "default":"Please welcome {name}!",
+        "help":"The message that sends when a user joins your server, if there is more than 1 it will pick a random one. Only works if 'welcome_message_channel' is set.",
+        "type":"[]string"
+    },
+    "join_message_channel": {
+        "default":false,
+        "help":"The channel that receives a message when a user joins your server.",
+        "type":"channel"
+    },
+    "join_role": {
+        "default":false,
+        "help":"The role that a user receives when they join your server.",
+        "type":"role"
+    },
+
+    "remove_invites": {
+        "default":false,
+        "help":"If invites are removed.",
+        "type":"boolean"
+    },
+    "remove_invites_exempt_channels": {
+        "default":false,
+        "help":"The channel(s) that are exempt from invite removal.",
+        "type":"[]channel"
+    },
+    "remove_invites_exempt_roles": {
+        "default":false,
+        "help":"The role(s) that are exempt from invite removal.",
+        "type":"[]role"
+    },
+
+    "birthday_announcement_message": {
+        "default":"Happy Birthday {name}!",
+        "help":"The message that sends when it's a users birthday, only works if 'birthday_announcement_channel' is set.",
+        "type":"string"
+    },
+    "birthday_announcement_channel": {
+        "default":false,
+        "help":"The channel that receives a message when it's a users birthday.",
+        "type":"channel"
+    },
+    "birthday_role": {
+        "default":false,
+        "help":"The role that members get if it's their birthday.",
+        "type":"role"
+    },
+    "birthday_posttime": {
+        "default":0,
+        "help":"The time of day that birthday messages will be sent/roles updated.",
+        "type":"number",
+        "restricted":true
+    },
+
+    "qotd_channel": {
+        "default":false,
+        "help":"The channel that question of the day questions are posted.",
+        "type":"channel"
+    },
+    "qotd_role": {
+        "default":false,
+        "help":"The role that gets pinged when a new qotd is posted.",
+        "type":"role"
+    },
+    "qotd_posttime": {
+        "default":15,
+        "help":"The time of day that questions will be asked",
+        "type":"number",
+        "restricted":true
+    },
+    "questions": {
+        "default":[],
+        "help":"Question of the day questions.",
+        "type":"array",
+        "restricted":true
+    },
+
+    "replybot_channel": {
+        "default":false,
+        "help":"The channel/theads(s) that allows the bot to reply to people [BETA].",
+        "type":"[]channel/thread"
+    }
+}
