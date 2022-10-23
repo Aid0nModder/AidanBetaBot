@@ -93,7 +93,7 @@ class FP():
 		if self.mp > 0:
 			if self.mp == 3 and self.enemy.health <= 50: return "kamikaze"
 			if self.mp == 2 and (self.enemy.defending or self.enemy.mp > 1) and randint(1,2) == 2: return "pierce" # 50%
-			if self.mp == 1 and (self.health >= 40 or randint(1,3) == 3): return "attack-up" # 33.3%
+			if self.mp == 1 and (self.health >= 40 or randint(1,3) == 3): return "attack_up" # 33.3%
 			if self.health <= self.energy*25 and randint(0,3) < self.energy: return "heal"
 		return "wait"
 	def makeMoveHard(self): # doesn't take any chances
