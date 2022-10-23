@@ -4,7 +4,9 @@ import json
 from typing import Literal
 
 ### DON'T LEAK! ###
-
+github = Github(os.getenv("GITHUB_TOKEN"))
+githubrepo = github.get_repo("Aid0nModder/AidanBot")
+token = os.getenv("DISCORD_TOKEN")
 ### DON'T LEAK! ###
 
 def getnames(path):
