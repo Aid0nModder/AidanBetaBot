@@ -250,7 +250,7 @@ class FM():
 		view.add_item(discord.ui.Button( style=Style.red,      label=f"Defend [1]",            custom_id="defend",    row=0, disabled=(timeout or onee),  emoji="🛡️"))
 		view.add_item(discord.ui.Button( style=Style.gray,     label=f"Wait",                  custom_id="wait",      row=0, disabled=timeout,            emoji="🕐"))
 		view.add_item(discord.ui.Button( style=Style.gray,     label=f"Flee",                  custom_id="flee",      row=0, disabled=timeout,            emoji="✖️"))
-		view.add_item(discord.ui.Button( style=Style.blurple,  label=f"Attack-Up [1]",         custom_id="attack_up", row=1, disabled=(timeout or one),   emoji="⏫"))
+		view.add_item(discord.ui.Button( style=Style.blurple,  label=f"Attack-Up [1]",         custom_id="attackup", row=1, disabled=(timeout or one),   emoji="⏫"))
 		view.add_item(discord.ui.Button( style=Style.blurple,  label=f"Pierce [2]",            custom_id="pierce",    row=1, disabled=(timeout or two),   emoji="📍"))
 		view.add_item(discord.ui.Button( style=Style.blurple,  label=f"Kamikaze [3]",          custom_id="kamikaze",  row=1, disabled=(timeout or three), emoji="💥"))
 		view.add_item(discord.ui.Button( style=Style.green,    label=f"Heal [{max(curm,1)}]",  custom_id="heal",      row=1, disabled=(timeout or onem),  emoji="💓"))
@@ -277,7 +277,7 @@ class FM():
 		turn.defending, turn.energy = True, turn.energy-1
 		return [["turn","energy-",1]]
 
-	def attack_up(self, turn:FP, turnt:FP):
+	def attackup(self, turn:FP, turnt:FP):
 		turn.multiplier, turn.mp = turn.multiplier+0.5, turn.mp-1
 		return [["turn","multipliers"],["turn","mp-",1]]
 	def pierce(self, turn:FP, turnt:FP):
