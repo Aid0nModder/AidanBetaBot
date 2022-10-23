@@ -1,6 +1,6 @@
 from aidanbot import AidanBot
 from github import Github
-import json
+import os, json
 from typing import Literal
 
 ### DON'T LEAK! ###
