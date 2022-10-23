@@ -93,7 +93,7 @@ class FP():
 		if self.mp > 0:
 			if self.mp == 3 and self.enemy.health <= 50: return "kamikaze"
 			if self.mp == 2 and (self.enemy.defending or self.enemy.mp > 1) and randint(1,2) == 2: return "pierce" # 50%
-			if self.mp == 1 and (self.health >= 40 or randint(1,3) == 3): return "attack_up" # 33.3%
+			if self.mp == 1 and (self.health >= 40 or randint(1,3) == 3): return "attackup" # 33.3%
 			if self.health <= self.energy*25 and randint(0,3) < self.energy: return "heal"
 		return "wait"
 	def makeMoveHard(self): # doesn't take any chances
@@ -107,13 +107,13 @@ class FP():
 		if self.energy > 0 and (not self.enemy.comboing) and self.enemy.energy == 0: return "defend"
 		if self.mp == 3 and self.enemy.health <= 50: return "kamikaze"
 		if self.mp == 2 and (15 > ushd or (self.enemy.mp > 1 and 10 > ushd)): return "pierce"
-		if self.mp == 1 and ushdplus >= self.enemy.health: return "attack-up"
+		if self.mp == 1 and ushdplus >= self.enemy.health: return "attackup"
 		return "wait"
 	def makeMoveRandom(self):
 		opt = ["wait"]
 		if self.energy > 0: opt.append("punch"); opt.append("defend")
 		if self.energy > 1: opt.append("combo")
-		if self.mp == 1: opt.append("attack-up")
+		if self.mp == 1: opt.append("attackup")
 		if self.mp == 2: opt.append("pierce")
 		if self.mp == 3: opt.append("kamikaze")
 		if self.mp > 0: opt.append("heal")
