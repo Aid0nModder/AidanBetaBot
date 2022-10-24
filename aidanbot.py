@@ -255,7 +255,7 @@ class AidanBot(commands.Bot):
 		except Exception:
 			await sendCustomError(self, "Staus Change", f"Status failed to change to: {activity_type} {content}")
 			
-	def itrFail():
+	def itrFail(self):
 		if randint(1,6) == 1:
 			comebacks = [
 				"Did you try to poke my buttons? Sheeeeeesshh.", "Not your buttons! What a bruh moment.", "Sorry, you can't press this butt-on! :smirk:", "D-don't touch me user-san! O///O",
