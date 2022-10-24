@@ -1,30 +1,27 @@
+import asyncio
 import discord
-import discord.ext.commands as CM
-import discord.app_commands as AC
-from discord import Interaction as Itr
-from discord import Embed, Color
+from discord.ext import commands, pages
+from discord.commands import slash_command, SlashCommandGroup
 from discord.utils import get
+from discord import Option, Color, Embed, OptionChoice
 
 from github.Issue import Issue
 
-from aidanbot import AidanBot
-from functions import getComEmbed
-from cooldowns import cooldown_core, cooldown_UwU, cooldown_etc
-from checks import ab_check, ab_check_slient, permission_check
+import time
+from datetime import datetime
+
 from bot import getCONnames, getUCONnames, getGithubtags
+from config import ConfigManager
+from functions import getComEmbed
+from checks import command_checks, command_checks_silent, permission_check
+from cooldowns import cooldown_core
 
-import time, datetime, re, asyncio
-from random import choice, randint
-from typing import Literal
+CONvaluenames = getCONnames()
+UCONvaluenames = getUCONnames()
+GithubTags = getGithubtags()
 
-githublabels = getGithubtags()
-CONvalues = getCONnames()
-UCONvalues = getUCONnames()
-
-def replaceWord(text, find, replace):
-	return re.sub(r"\b" + find + r"\b", replace, text)
-
-def permissionStates(itr:Itr, client:AidanBot):
+AC = discord.ApplicationContext
+def permissionStates(ctx:AC, client:commands.Bot):
 	permissions = [
 		"view_channel","manage_channels","manage_roles","manage_emojis_and_stickers","view_audit_log","view_guild_insights","manage_webhooks","manage_guild", "create_instant_invite",
 		"change_nickname","manage_nicknames","kick_members","ban_members","moderate_members","send_messages","send_messages_in_threads","create_public_threads","create_private_threads",
@@ -53,47 +50,41 @@ def permissionStates(itr:Itr, client:AidanBot):
 		"change_nickname","manage_nicknames","kick_members","ban_members","moderate_members","create_public_threads","create_private_threads",
 		"add_reactions","manage_threads","send_tts_messages","use_application_commands","manage_events","administrator"
 	]
-	clientmember = get(itr.guild.members, id=client.user.id)
+	clientmember = get(ctx.guild.members, id=client.user.id)
 
 	rtxt = ""
 	for perm in requiredperms:
-		if not permission_check(clientmember, itr.channel, perm):
+		if not permission_check(clientmember, ctx.channel, perm):
 			rtxt += "`" + perm + " - " + requiredperms[perm] + "`\n"
 	if rtxt == "":
 		rtxt = f"Hoo ray! You have given {client.name} all the neccacary permissions!"
 		
 	otxt = ""
 	for perm in optionalperms:
-		if not permission_check(clientmember, itr.channel, perm):
+		if not permission_check(clientmember, ctx.channel, perm):
 			otxt += "`" + perm + " - " + optionalperms[perm] + "`\n"
 	if otxt == "":
 		otxt = f"What a CHAD! You have given {client.name} all the optional permissions!"
 
 	utxt = ""
 	for perm in unnecessaryperms:
-		if permission_check(clientmember, itr.channel, perm):
+		if permission_check(clientmember, ctx.channel, perm):
 			utxt += "`" + perm + " - Not needed in this current version`\n"
 	if utxt == "":
 		utxt = f"Smart Admin! You have not given {client.name} any unnecessary permissions!"
 
 	return [["Required",rtxt],["Optional",otxt],["Unnecessary",utxt]]
 
-class CoreCog(CM.Cog):
-	def __init__(self, client:AidanBot):
+# man, what a throwback
+class CoreCog(discord.Cog):
+	def __init__(self, client:commands.Bot):
 		self.client = client
 
-		self.uwuify = AC.ContextMenu(name="UwU", callback=self._uwuify)
-		self.client.tree.add_command(self.uwuify, guilds=self.client.debug_guilds)
-
-	async def cog_unload(self):
-		self.client.tree.remove_command(self.uwuify.name, type=self.uwuify.type)
-
-	@AC.command(name="info", description="Get info about the bot.")
-	@CM.dynamic_cooldown(cooldown_etc, CM.BucketType.user)
-	async def list(self, itr:Itr):
-		page = 0
-		pages = [
-			getComEmbed(str(itr.user), self.client, "Info > General", f'''
+	@slash_command(name="info", description="Get info about the bot.")
+	@commands.dynamic_cooldown(cooldown_core, commands.BucketType.user)
+	async def info(self, ctx:AC):
+		infopages = [
+			getComEmbed(ctx, self.client, "Info > General", f'''
 				{self.client.info}
 
 				[Aidan's Youtube](https://www.youtube.com/c/AidanMapper)
@@ -101,261 +92,258 @@ class CoreCog(CM.Cog):
 				[{self.client.name}'s Privacy Policy](https://github.com/Aid0nModder/AidanBot#privacy-policy)
 				[{self.client.name}'s Terms of Service](https://github.com/Aid0nModder/AidanBot#terms-of-service)
 
-				**Guild Status:** `{self.client.CON.get_value(itr.guild, "guild_status")}`
+				**Guild Status:** `{self.client.CON.get_value(ctx.guild, "guild_status")}`
 			'''),
-			getComEmbed(str(itr.user), self.client, "Info > Permissions", "```(options marked with a * may become optional in the future)\n\n- Required: must be enabled as it can cause serious issues to both user and bot.\n- Optional: can be enabled or disabled without major disturbance, though some functionality can be lost.\n- Unnecessary: aren't required yet and should be disabled to keep safe.\n\n(Permissions not mentioned are fine as is, enabled or not.)```", fields=permissionStates(itr, self.client)),
+			getComEmbed(ctx, self.client, "Info > Permissions", "```(options marked with a * may become optional in the future)\n\n- Required: must be enabled as it can cause serious issues to both user and bot.\n- Optional: can be enabled or disabled without major disturbance, though some functionality can be lost.\n- Unnecessary: aren't required yet and should be disabled to keep safe.\n\n(Permissions not mentioned are fine as is, enabled or not.)```", fields=permissionStates(ctx, self.client)),
 		]
+		infopagesbuttons = [
+			pages.PaginatorButton("prev", label="<-", style=discord.ButtonStyle.blurple),
+			pages.PaginatorButton("page_indicator", style=discord.ButtonStyle.gray, disabled=True),
+			pages.PaginatorButton("next", label="->", style=discord.ButtonStyle.blurple),
+		]
+		paginator = pages.Paginator(pages=infopages, loop_pages=True, disable_on_timeout=True, timeout=60, use_default_buttons=False, custom_buttons=infopagesbuttons)
+		await paginator.respond(ctx.interaction)
 
-		def getView(timeout=False):
-			view = discord.ui.View(timeout=None)
-			view.add_item(discord.ui.Button(label="<-", style=discord.ButtonStyle.blurple, custom_id="left", disabled=timeout))
-			view.add_item(discord.ui.Button(label=f"{page+1}/{len(pages)}", style=discord.ButtonStyle.gray, custom_id="display", disabled=True))
-			view.add_item(discord.ui.Button(label="->", style=discord.ButtonStyle.blurple, custom_id="right", disabled=timeout))
-			return view
-		
-		await itr.response.send_message(embed=pages[page], view=getView())
-		MSG = await itr.original_response()
-
-		def check(checkitr:Itr):
-			try:
-				return (checkitr.message.id == MSG.id and checkitr.user.id == itr.user.id)
-			except:
-				return False
-		while True:
-			try:
-				butitr = await self.client.wait_for("interaction", timeout=30, check=check)
-				await butitr.response.defer()
-				if butitr.data["custom_id"] == "left":
-					page -= 1
-					if page < 0: page = len(pages)-1
-				elif butitr.data["custom_id"] == "right":
-					page += 1
-					if page > len(pages)-1: page = 0
-				await itr.edit_original_response(embed=pages[page], view=getView())
-			except asyncio.TimeoutError:
-				return await itr.edit_original_response(view=getView(True))
-
-	@AC.command(name="ping", description="Check the Bot and API latency.")
-	@CM.dynamic_cooldown(cooldown_core, CM.BucketType.user)
-	async def ping(self, itr:Itr):
+	@slash_command(name="ping", description="Check the Bot and API latency.")
+	@commands.dynamic_cooldown(cooldown_core, commands.BucketType.user)
+	async def ping(self, ctx:AC):
 		start_time = time.time()
-		await itr.response.send_message("Testing Ping...", ephemeral=True)
-		apitime = time.time()-start_time
-		await itr.edit_original_response(content="Ping Pong motherfliper!```\nBOT: {:.2f} seconds\nAPI: {:.2f} seconds\n```".format(self.client.latency, apitime))
-
-	@AC.command(name="echo", description="Say something as me.")
-	@AC.describe(message="What I will say.", attachment="What attachment to attach.")
-	@CM.dynamic_cooldown(cooldown_core, CM.BucketType.user)
-	async def echo(self, itr:Itr, message:str, attachment:discord.Attachment=None):
-		if len(message) >= 1000: return await itr.response.send_message("Message must be 1000 characters or fewer.", ephemeral=True)
-		await itr.response.defer(ephemeral=True)
-		if attachment and await ab_check_slient(itr, self.client, is_guild=True, bot_has_permission="attach_files"):
+		await ctx.respond("Testing Ping...", ephemeral=True)
+		apitime = time.time() - start_time
+		await ctx.edit(content="Ping Pong motherfliper!```\nBOT: {:.2f} seconds\nAPI: {:.2f} seconds\n```".format(self.client.latency, apitime))
+		
+	@slash_command(name="echo", description="Say something as me.")
+	@commands.dynamic_cooldown(cooldown_core, commands.BucketType.user)
+	async def echo(self, ctx:AC,
+		message:Option(str, "What I will say.", required=True),
+		attachment:Option(discord.Attachment, "What attachment will he attach.", required=False)
+	):
+		if attachment and (not await command_checks_silent(ctx, self.client, is_guild=True, bot_has_permission="attach_files")):
 			files = await self.client.attachmentsToFiles([attachment])
 		else:
 			files = []
-		await itr.channel.send(message, files=files, allowed_mentions=discord.AllowedMentions(everyone=False, roles=False))
-		await itr.edit_original_response(content="Sent!")
+		await ctx.send(message, files=files)
+		await ctx.respond("Sent!", ephemeral=True)
 
-	@AC.command(name="embed", description="Send a custom embed.")
-	@AC.describe(
-		title="Title of the embed.", description="Description of the embed.", color="Color of the embed.", timestamp="If the embed shows the timestamp.", header="Header of the embed.",
-		headerimg="Image (Link) that will appear beside the header.", footer="Footer of the embed.", footerimg="Image (Link) that will appear beside the footer.",
-		image="Image (Link) to appear below the embed content", thumbnail="Image (Link) to appear on the right side of the embed content.", field1="A field of the emebd, split title and value with '|'",
-		field2="A field of the emebd, split title and value with '|'", field3="A field of the emebd, split title and value with '|'"
-	)
-	@CM.dynamic_cooldown(cooldown_core, CM.BucketType.user)
-	async def embed(self, itr:Itr,
-		title:str, description:str, color:Literal["System gray","System red","System dark red","Red","Green","Blue","Gold","Gray"]="System gray", timestamp:bool=False, header:str="",
-		headerimg:str=None, footer:str="", footerimg:str=None, image:str=None, thumbnail:str=None, field1:str=None, field2:str=None, field3:str=None
+	@slash_command(name="embed", description="Send a custom embed.")
+	@commands.dynamic_cooldown(cooldown_core, commands.BucketType.user)
+	async def embed(self, ctx:AC,
+		title:Option(str, "Title of the embed.", required=True),
+		description:Option(str, "Description of the embed.", required=True),
+		color:Option(str, "Color of the embed", choices=[
+			OptionChoice(name="system gray", value="sys-gray"),
+			OptionChoice(name="system red", value="sys-red"),
+			OptionChoice(name="system dark red", value="sys-darkred"),
+			OptionChoice(name="red", value="red"),
+			OptionChoice(name="green", value="green"),
+			OptionChoice(name="blue", value="blue"),
+			OptionChoice(name="gold", value="gold"),
+			OptionChoice(name="gray", value="gray"),
+		], required=True),
+		timestamp:Option(bool, "if timestamp is enabled.", required=False, default=False),
+		header:Option(str, "Header of the embed.", required=False, default=""),
+		headerimg:Option(str, "Image (Link) next to the header of the embed.", required=False, default=False),
+		footer:Option(str, "Footer of the embed.", required=False, default=""),
+		footerimg:Option(str, "Image (Link) next to the header of the embed.", required=False, default=False),
+		image:Option(str, "Image (Link) That will appear at the bottom of the embed.", required=False, default=False),
+		thumbnail:Option(str, "Image (Link) That will appear on the right side of the embed.", required=False, default=False),
+		field1:Option(str, "A field of the emebd, split title and value with '|'", required=False, default=False),
+		field2:Option(str, "A field of the emebd, split title and value with '|'", required=False, default=False),
+		field3:Option(str, "A field of the emebd, split title and value with '|'", required=False, default=False)
 	):
-		try:
-			await itr.response.defer(ephemeral=True)
-			if color == "System gray": color = Color.from_rgb(20, 29, 37)
-			if color == "System red": color = Color.from_rgb(220, 29, 37)
-			if color == "System dark red": color = Color.from_rgb(120, 29, 37)
-			if color == "Red": color = Color.from_rgb(225, 15, 15)
-			if color == "Green": color = Color.from_rgb(15, 225, 15)
-			if color == "Blue": color = Color.from_rgb(15, 15, 225)
-			if color == "Gold": color = Color.from_rgb(225, 120, 15)
-			if color == "Gray": color = Color.from_rgb(165, 165, 165)
+		if color == "sys-gray": color = Color.from_rgb(20, 29, 37)
+		if color == "sys-red": color = Color.from_rgb(220, 29, 37)
+		if color == "sys-darkred": color = Color.from_rgb(120, 29, 37)
+		if color == "red": color = Color.from_rgb(225, 15, 15)
+		if color == "green": color = Color.from_rgb(15, 225, 15)
+		if color == "blue": color = Color.from_rgb(15, 15, 225)
+		if color == "gold": color = Color.from_rgb(225, 120, 15)
+		if color == "gray": color = Color.from_rgb(165, 165, 165)
+		if timestamp: timestamp = datetime.now()
 
-			if timestamp:
-				timestamp = datetime.datetime.now()
+		emb = Embed(title=title, description=description, color=color, timestamp=timestamp)
+		if footer != "" or footerimg:
+			emb.set_footer(text=footer, icon_url=footerimg)
+		if header != "" or headerimg:
+			emb.set_author(name=header, icon_url=headerimg)
+		if image:
+			emb.set_image(url=image)
+		if thumbnail:
+			emb.set_thumbnail(url=thumbnail)
+
+		if field1:
+			field1 = field1.split("|")
+			if len(field1) > 2 and field1[2] == "true":
+				emb.add_field(name=field1[0], value=field1[1], inline=True)
 			else:
-				timestamp = None
+				emb.add_field(name=field1[0], value=field1[1], inline=False)
+		if field2:
+			field2 = field2.split("|")
+			if len(field2) > 2 and field2[2] == "true":
+				emb.add_field(name=field2[0], value=field2[1], inline=True)
+			else:
+				emb.add_field(name=field2[0], value=field2[1], inline=False)
+		if field3:
+			field3 = field3.split("|")
+			if len(field3) > 2 and field3[2] == "true":
+				emb.add_field(name=field3[0], value=field3[1], inline=True)
+			else:
+				emb.add_field(name=field3[0], value=field3[1], inline=False)
 
-			emb = Embed(title=title, description=description, color=color, timestamp=timestamp)
-			if footer != "" or footerimg:
-				emb.set_footer(text=footer, icon_url=footerimg)
-			if header != "" or headerimg:
-				emb.set_author(name=header, icon_url=headerimg)
-			if image:
-				emb.set_image(url=image)
-			if thumbnail:
-				emb.set_thumbnail(url=thumbnail)
+		await ctx.send(embed=emb)
+		await ctx.respond("Sent!", ephemeral=True)
 
-			if field1:
-				field1 = field1.split("|")
-				if len(field1) > 2 and field1[2] == "true":
-					emb.add_field(name=field1[0], value=field1[1], inline=True)
-				else:
-					emb.add_field(name=field1[0], value=field1[1], inline=False)
-			if field2:
-				field2 = field2.split("|")
-				if len(field2) > 2 and field2[2] == "true":
-					emb.add_field(name=field2[0], value=field2[1], inline=True)
-				else:
-					emb.add_field(name=field2[0], value=field2[1], inline=False)
-			if field3:
-				field3 = field3.split("|")
-				if len(field3) > 2 and field3[2] == "true":
-					emb.add_field(name=field3[0], value=field3[1], inline=True)
-				else:
-					emb.add_field(name=field3[0], value=field3[1], inline=False)
-
-			await itr.channel.send(embed=emb)
-			await itr.response.send_message("Embeded!")
-		except ValueError:
-			return await itr.response.send_message("Embed was too boog.", ephemeral=True)
-
-	@AC.command(name="clone", description="Say something as another user.")
-	@AC.describe(user="User you want to clone.", message="Message you want to send as them.", attachment="What attachment to attach.")
-	@CM.dynamic_cooldown(cooldown_core, CM.BucketType.user)
-	async def clone(self, itr:Itr, user:discord.Member, message:str, attachment:discord.Attachment=None):
-		if len(message) >= 1000: return await itr.response.send_message("Message must be 1000 characters or fewer.", ephemeral=True)
-
-		if self.client.UCON.get_value(user, "clone_disabled", guild=itr.guild):
-			await itr.response.send_message("This user has disabled cloning, try a different user!", ephemeral=True)
+	@slash_command(name="clone", description="Say something as another user.")
+	@commands.dynamic_cooldown(cooldown_core, commands.BucketType.user)
+	async def clone(self, ctx:AC,
+		user:Option(discord.Member, "Member you want to clone.", required=True),
+		message:Option(str, "Message you want to make them send.", required=True),
+		attachment:Option(discord.Attachment, "What you want to attach.", required=False),
+	):
+		if attachment and (not await command_checks_silent(ctx, self.client, is_guild=True, bot_has_permission="attach_files")):
+			files = await self.client.attachmentsToFiles([attachment])
 		else:
-			await itr.response.defer(ephemeral=True)
-			if attachment and await ab_check_slient(itr, self.client, is_guild=True, bot_has_permission="attach_files"):
-				files = await self.client.attachmentsToFiles([attachment])
-			else:
-				files = []
-			await self.client.sendWebhook(itr.channel, user, message, files, f" (Cloned by {str(itr.user)})")
-			await itr.edit_original_response(content="Sent!")
+			files = []
 
-	@AC.command(name="issue", description="Create an issue on GitHub.")
-	@AC.describe(title="Title of the post.", body="Body of the embed.", label1="Tag to insert into the post.", label2="Tag to insert into the post.", label3="Tag to insert into the post.")
-	@CM.dynamic_cooldown(cooldown_core, CM.BucketType.user)
-	async def issue(self, itr:Itr, title:str, body:str, label1:githublabels=None, label2:githublabels=None, label3:githublabels=None):
-		if len(title) >= 200: return await itr.response.send_message("Title must be 200 characters or fewer.", ephemeral=True)
-		if len(body) >= 1000: return await itr.response.send_message("Body must be 1000 characters or fewer.", ephemeral=True)
+		if self.client.UCON.get_value(user, "clone_disabled", guild=ctx.guild):
+			await ctx.respond("This user has disabled cloning, try a different user!", ephemeral=True)
+		else:
+			await ctx.defer(ephemeral=True)
+			await self.client.sendWebhook(ctx.channel, user, message, files, f" (Cloned by {str(ctx.author)})")
+			await ctx.respond("Sent!", ephemeral=True)
 
-		body += f"\n\n[ Submitted by {str(itr.user)} via /issue ]"
+	@slash_command(name="issue", description="Create an issue on GitHub.")
+	@commands.dynamic_cooldown(cooldown_core, commands.BucketType.user)
+	async def issue(self, ctx:AC,
+		title:Option(str, "Title of the post.", required=True),
+		body:Option(str, "Body of the post.", required=True),
+		label1:Option(str, "1st Tag for the post.", choices=GithubTags, required=False),
+		label2:Option(str, "2nd Tag for the post.", choices=GithubTags, required=False),
+		label3:Option(str, "3rd Tag for the post.", choices=GithubTags, required=False)
+	):
+		body += f"\n\n[ Submitted by {str(ctx.author)} via /issue ]"
 		labels = [i for i in [label1, label2, label3] if i]
 		if len(labels) > 0:
 			issue:Issue = self.client.botrepo.create_issue(title=title, body=body, labels=labels)
 		else:
 			issue:Issue = self.client.botrepo.create_issue(title=title, body=body)
-		await itr.response.send_message(f"Submitted!\n\n{issue.html_url}")
+		await ctx.respond(f"Submitted!\n\n{issue.html_url}")
 
-	@AC.command(name="role", description="Add a role to you or someone. Can only add [r] roles to yourself without manage_roles.")
-	@AC.describe(action="If you want to add or remove a role.", role="Role to add/remove to yourself.", user="User to add/remove the role to.")
-	@CM.dynamic_cooldown(cooldown_core, CM.BucketType.user)
-	async def role(self, itr:Itr, action:Literal["Add","Remove"], role:discord.Role, user:discord.Member):
-		if not await ab_check(itr, self.client, is_guild=True, bot_has_permission="manage_roles"):
-			return
-
-		if ((user and user != itr.user) or (not role.name.startswith("[r]"))) and (not itr.channel.permissions_for(itr.user).manage_roles):
-			return await itr.response.send_message("Sorry kid, that's for mods only, maybe one day...")
-		clientmember = await itr.guild.fetch_member(self.client.user.id)
+	@slash_command(name="role", description="Add a role to you or someone. Can only add [r] roles to yourself without manage_roles.")
+	@commands.dynamic_cooldown(cooldown_core, commands.BucketType.user)
+	async def role(self, ctx:AC,
+		role:Option(discord.Role, "Role to add/remove to yourself.", required=True),
+		user:Option(discord.Member, "User to add/remove the role to.", required=False),
+		action:Option(str, "If you want to add or remove a role.", choices=["add","remove"], default="add"),
+	):
+		if await command_checks(ctx, self.client, is_guild=True, bot_has_permission="manage_roles"): return
+		if ((user and user != ctx.author) or (not role.name.startswith("[r]"))) and (not ctx.channel.permissions_for(ctx.author).manage_roles):
+			return await ctx.respond("HAHA, Maybe one day kiddo...")
+		clientmember = get(ctx.guild.members, id=self.client.user.id)
 		if role.position >= clientmember.top_role.position:
-			return await itr.response.send_message("Sorry, can't give roles above my top role.")
-		if role.position >= itr.user.top_role.position:
-			return await itr.response.send_message("Sorry, can't give roles above your top role.")
-		user = user or itr.user
-		if action == "Add":
+			return await ctx.respond("Sorry, can't give roles above my top role.")
+		if role.position >= ctx.author.top_role.position:
+			return await ctx.respond("Sorry, can't give roles above your top role.")
+		user = user or ctx.author
+		if action == "add":
 			await user.add_roles(role)
-			await itr.response.send_message(f"Added {role.mention} to {user.mention}!")
-		elif action == "Remove":
-			await user.remove_roles(role)
-			await itr.response.send_message(f"Removed {role.mention} from {user.mention}!")
+			await ctx.respond(f"Added {role.mention} to {user.mention}!")
 		else:
-			await itr.response.send_message(f"'We got a, number one victory royale, yeah Fortnite we bou-' how the hell did you get here, get the heck out.\n```'{action}' is not a valid action```")
+			await user.remove_roles(role)
+			await ctx.respond(f"Removed {role.mention} from {user.mention}!")
 
-	@CM.dynamic_cooldown(cooldown_UwU, CM.BucketType.channel)
-	async def _uwuify(self, itr:Itr, message:discord.Message):
-		endings = [";;w;;", ";w;", "UwU", "OwO", ":3", "X3", "^_^", "\\* *sweats* *", "\\* *screams* *", "\\* *huggles tightly* *"]
+	# CONFIG #
 
-		# start with owour message
-		msg = message.clean_content
-
-		# add some uwunique words
-		repwords = {
-			"love":"wuv", "cherish":"chwish",
-			"Love":"Wuv", "Cherish":"Chwish",
-			"LOVE":"WUV", "CHERISH":"CHWISH"
-		}
-		for repword in repwords:
-			msg = replaceWord(msg,repword,repwords[repword])
-
-		# add s-some dashes to make them s-seem nervowous
-		mwords = msg.split()
-		newmwords = []
-		for i, v in enumerate(mwords):
-			if randint(1,12) == 12:
-				newmwords.append(v[0] + "-" + v)
-			else:
-				newmwords.append(v)
-		msg = " ".join(newmwords)
-
-		# make them sowounds wike a child
-		msg = msg.replace("l","w").replace("r","w").replace("L","W").replace("R","W")
-		msg = "*" + msg + "* " + choice(endings)
-
-		# print(msg) # dowone
-		await itr.response.defer(ephemeral=True)
-		try:
-			await self.client.sendWebhook(itr.channel, message.author, msg, [], f" (uwuified by {str(itr.user)})")
-			await itr.edit_original_response(content="UwUified!")
-		except Exception:
-			await itr.edit_original_response(content="Error! Try again later!")
-
-	configgroup = AC.Group(name="config", description="Commands to do with configeration.")
+	configgroup = SlashCommandGroup("config", "Config commands.")
 	
 	@configgroup.command(name="guild", description="Guild configerations.")
-	@AC.describe(action="Config action.", name="Variable you're performing action on.", value="New value for this variable.")
-	@AC.autocomplete()
-	@CM.dynamic_cooldown(cooldown_core, CM.BucketType.user)
-	async def guildconfig(self, itr:Itr, action:Literal["List","Set","Reset","Info","Getraw"], name:CONvalues=None, value:str=None, guild:str=None):
-		if not await ab_check(itr, self.client, is_guild=True, has_mod_role=True):
-			return
-		await self.config_command(itr, self.client.CON, itr.guild, action, name, value)
+	@commands.dynamic_cooldown(cooldown_core, commands.BucketType.user)
+	async def guildconfig(self, ctx:AC,
+		action:Option(str, "Config action.", choices=["List","Set","Reset","Info","Getraw"], required=True),
+		name:Option(str, "Variable you're performing action on.", choices=CONvaluenames, required=False),
+		value:Option(str, "New value for this Variable.", required=False),
+	):
+		if await command_checks(ctx, self.client, is_guild=True, has_mod_role=True): return
+		await self.config_command(ctx, self.client.CON, ctx.guild, action, name, value)
 
 	@configgroup.command(name="user", description="User configerations.")
-	@AC.describe(action="Config action.", name="Variable you're performing action on.", value="New value for this variable.")
-	@CM.dynamic_cooldown(cooldown_core, CM.BucketType.user)
-	async def userconfig(self, itr:Itr, action:Literal["List","Set","Reset","Info","Getraw"], name:UCONvalues=None, value:str=None):
-		await self.config_command(itr, self.client.UCON, itr.user, action, name, value)
+	@commands.dynamic_cooldown(cooldown_core, commands.BucketType.user)
+	async def userconfig(self, ctx:AC,
+		action:Option(str, "Config action.", choices=["List","Set","Reset","Info","Getraw"], required=True),
+		name:Option(str, "Variable you're performing action on. Required for all but 'List'.", choices=UCONvaluenames, required=False),
+		value:Option(str, "New value for this Variable. Required for 'Set'.", required=False)
+	):
+		await self.config_command(ctx, self.client.UCON, ctx.author, action, name, value)
 	
-	async def config_command(self, itr:Itr, CON, obj, action="List", name=None, value=None):
+	async def config_command(self, ctx, CON, obj, action="List", name=None, value=None):
 		values = CON.get_group(obj)
 		embed = False
 		if action == "List":
 			txt = ""
 			for name in values:
 				if CON.is_restricted(name) != True:
-					txt += f"\n**- {name}:** {CON.display_value(name, CON.get_value(obj, name, itr.guild))}"
-			embed = getComEmbed(str(itr.user), self.client, f"All values for {obj.name}:", txt)
+					txt += f"\n**- {name}:** {CON.display_value(name, CON.get_value(obj, name, ctx.guild))}"
+			embed = getComEmbed(ctx, self.client, f"All values for {obj.name}:", txt)
 		elif action == "Info" and name:
 			txt = f"**Value:** {CON.display_value(name, values[name])}\n**Default Value:** `{CON.default_values[name]}`\n**Description:** '{CON.desc_values[name]}'\n**Type:** `{CON.type_values[name]}`\n**Stackable:** `{CON.stackable_values[name]}`"
-			embed = getComEmbed(str(itr.user), self.client, f"Info for {name}:", txt)
+			embed = getComEmbed(ctx, self.client, f"Info for {name}:", txt)
 		elif action == "Getraw" and name:
 			txt = f"```{CON.raw_value(name, values[name])}```"
-			embed = getComEmbed(str(itr.user), self.client, f"Raw of {name}:", txt)
+			embed = getComEmbed(ctx, self.client, f"Raw of {name}:", txt)
 		elif action == "Reset" and name:
 			await CON.reset_value(obj, name)
-			embed = getComEmbed(str(itr.user), self.client, content=f"Reset {name} to `{CON.default_values[name]}`!")
+			embed = getComEmbed(ctx, self.client, content=f"Reset {name} to `{CON.default_values[name]}`!")
 		elif action == "Set" and name and value:
-			fulval, error = await CON.set_value(obj, name, value, itr.guild)
+			fulval, error = await CON.set_value(obj, name, value, ctx.guild)
 			if error:
-				embed = getComEmbed(str(itr.user), self.client, content=error)
+				embed = getComEmbed(ctx, self.client, content=error)
 			else:
-				embed = getComEmbed(str(itr.user), self.client, content=f"Set {name} to {CON.display_value(name, CON.get_value(obj, name, itr.guild))}!")
+				embed = getComEmbed(ctx, self.client, content=f"Set {name} to {CON.display_value(name, CON.get_value(obj, name, ctx.guild))}!")
 		else:
-			return await itr.response.send_message("Seems like you're missing some arguments. Try again.")
-		await itr.response.send_message(embed=embed)
+			return await ctx.respond("Seems like you're missing some arguments. Try again.")
+		await ctx.respond(embed=embed)
 
-async def setup(client:AidanBot):
-	await client.add_cog(CoreCog(client), guilds=client.debug_guilds)
+	###
+
+	'''async def config_command(self, ctx:AC, CON:ConfigManager, obj:discord.Guild|discord.Member):
+		values = CON.get_group(obj)
+		valid = []
+		for name in values:
+			if CON.is_restricted(name) != True:
+				valid.append(name)
+
+		confpage = 0
+		confpages = {}
+		confoptions = []
+		for name in valid:
+			confpages[name] = getComEmbed(ctx, self.client, f"Guild Config > {name}", "Still a WIP command. Info will be here in the future!")
+			confoptions.append(discord.SelectOption(label=name, value=name, description=CON.desc_values[name]))
+
+		emb, view = confpages[confpage], discord.ui.View(
+			discord.ui.Select(placeholder="Select Value", custom_id="select", options=confoptions),
+			discord.ui.Button(label="Change", style=discord.ButtonStyle.green, custom_id="change", row=1),
+			discord.ui.Button(label="Reset", style=discord.ButtonStyle.red, custom_id="reset", row=1),
+		)
+		response = await ctx.respond(embed=emb,view=view)
+		msg = await response.original_message()
+
+		def check(interaction:discord.Interaction):
+			return (interaction.user.id == ctx.author.id and interaction.message.id == msg.id)
+
+		while True:
+			try:
+				interaction = await self.client.wait_for("interaction", check=check, timeout=180)
+				await interaction.response.defer()
+				id = interaction.custom_id
+				print(id)
+			except asyncio.TimeoutError:
+				await ctx.edit("Timeout")
+
+	@configgroup.command(name="guild-new", description="Guild configerations.")
+	@commands.dynamic_cooldown(cooldown_core, commands.BucketType.user)
+	async def guildconfignew(self, ctx:AC):
+		if await command_checks(ctx, self.client, is_guild=True, has_mod_role=True): return
+		await self.newconfig_command(ctx, self.client.CON, ctx.guild)'''
+
+def setup(client):
+	client.add_cog(CoreCog(client))
