@@ -1,14 +1,17 @@
 import discord
-from discord.ext import commands, pages, tasks
-from discord.commands import SlashCommandGroup
+import discord.ext.commands as CM
+import discord.app_commands as AC
+from discord import Interaction as Itr
+from discord.ext import tasks
 from discord.utils import get
-from discord import Option
 
-import datetime
+import datetime, asyncio
 from random import randint, choice
+from typing import Literal
 
+from aidanbot import AidanBot
 from functions import getComEmbed, sendCustomError
-from checks import command_checks
+from checks import ab_check, ab_check_slient
 from cooldowns import cooldown_etc
 
 defaultquestions = [
@@ -51,9 +54,8 @@ def generateID(questions):
 				txt += choice("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890")
 	return txt
 
-AC = discord.ApplicationContext
-class QOTDCog(discord.Cog):
-	def __init__(self, client:commands.Bot):
+class QOTDCog(CM.Cog):
+	def __init__(self, client:AidanBot):
 		self.client = client
 
 	async def ready(self):
@@ -63,8 +65,8 @@ class QOTDCog(discord.Cog):
 		self.daily_task.cancel()
 		
 	async def askQuestion(self, testpost=False, postguild:discord.Guild=False):
-		if self.client.isbeta: return
-
+		if self.client.isbeta and (not testpost):
+			return
 		for guild in await self.client.CON.loopdata():
 			if (not postguild) or postguild == guild:
 				channel = self.client.CON.get_value(guild, "qotd_channel", guild=guild)
@@ -110,87 +112,102 @@ class QOTDCog(discord.Cog):
 
 	###
 
-	qotdgroup = SlashCommandGroup("qotd", "Question Of The Day commands.")
+	qotdgroup = AC.Group(name="qotd", description="Question Of The Day commands.")
 
 	@qotdgroup.command(name="list", description="List all questions.")
-	@commands.dynamic_cooldown(cooldown_etc, commands.BucketType.user)
-	async def list(self, ctx:AC):	
-		if await command_checks(ctx, self.client, is_guild=True, has_value="qotd_channel"): return
-		questions = self.client.CON.get_value(ctx.guild, "questions")
+	@CM.dynamic_cooldown(cooldown_etc, CM.BucketType.user)
+	async def list(self, itr:Itr):	
+		if not await ab_check(itr, self.client, is_guild=True, has_value="qotd_channel"):
+			return
+		questions = self.client.CON.get_value(itr.guild, "questions")
 		if len(questions) == 0:
-			return await ctx.respond("Seems like we're out of questions... Use /qotd add to add some more!")
+			return await itr.response.send_message("No questions added. Try adding some with /qotd ask!")
 
 		def getqotdlistembed(questions):
 			fields = []
 			for question in questions:
-				member = get(ctx.guild.members, id=question["author"])
+				member = get(itr.guild.members, id=question["author"])
 				fields.append([f"'{question['question']}'", f"Submitted by **{str(member)}** | ID: **{question['id']}**"])
-			return getComEmbed(ctx, self.client, f"All Questions for {ctx.guild.name}", "Submit your own questions with /qotd ask!", fields=fields)
+			return getComEmbed(str(itr.user), self.client, f"All Questions for {itr.guild.name}", "Submit your own questions with /qotd ask!", fields=fields)
 
-		def divide_chunks(l, n):
-			for i in range(0, len(l), n):
-				yield l[i:i + n]
+		page = 0
+		pages = []
+		for qc in divide_chunks(questions, 5):
+			pages.append(getqotdlistembed(qc))
 
-		infopages = []
-		questionchunks = divide_chunks(questions, 5)
-		for qc in questionchunks:
-			infopages.append(getqotdlistembed(qc))
+		def getView(timeout=False):
+			view = discord.ui.View(timeout=None)
+			view.add_item(discord.ui.Button(label="<-", style=discord.ButtonStyle.blurple, custom_id="left", disabled=timeout))
+			view.add_item(discord.ui.Button(label=f"{page+1}/{len(pages)}", style=discord.ButtonStyle.gray, custom_id="display", disabled=True))
+			view.add_item(discord.ui.Button(label="->", style=discord.ButtonStyle.blurple, custom_id="right", disabled=timeout))
+			return view
+		
+		await itr.response.send_message(embed=pages[page], view=getView())
+		MSG = await itr.original_response()
 
-		infopagesbuttons = [
-			pages.PaginatorButton("prev", label="<-", style=discord.ButtonStyle.blurple),
-			pages.PaginatorButton("page_indicator", style=discord.ButtonStyle.gray, disabled=True),
-			pages.PaginatorButton("next", label="->", style=discord.ButtonStyle.blurple),
-		]
-		paginator = pages.Paginator(pages=infopages, loop_pages=True, disable_on_timeout=True, timeout=60, use_default_buttons=False, custom_buttons=infopagesbuttons)
-		await paginator.respond(ctx.interaction)
+		def check(checkitr:Itr):
+			try:
+				return (checkitr.message.id == MSG.id)
+			except:
+				return False
+		while True:
+			try:
+				butitr:Itr = await self.client.wait_for("interaction", timeout=30, check=check)
+				if butitr.user == itr.user:
+					await butitr.response.defer()
+					if butitr.data["custom_id"] == "left":
+						page -= 1
+						if page < 0: page = len(pages)-1
+					elif butitr.data["custom_id"] == "right":
+						page += 1
+						if page > len(pages)-1: page = 0
+					await itr.edit_original_response(embed=pages[page], view=getView())
+				else:
+					await butitr.response.send_message(self.client.itrFail())
+			except asyncio.TimeoutError:
+				return await itr.edit_original_response(view=getView(True))
 
 	@qotdgroup.command(name="ask", description="Add a question to the daily questions.")
-	@commands.dynamic_cooldown(cooldown_etc, commands.BucketType.user)
-	async def ask(self, ctx:AC,
-		question:Option(str, "The question you want to ask.", required=True)
-	):	
-		if await command_checks(ctx, self.client, is_guild=True, has_value="qotd_channel"): return
-		questions = self.client.CON.get_value(ctx.guild, "questions")
+	@AC.describe(question="The question you want to ask.")
+	@CM.dynamic_cooldown(cooldown_etc, CM.BucketType.user)
+	async def ask(self, itr:Itr, question:str):	
+		if not await ab_check(itr, self.client, is_guild=True, has_value="qotd_channel"):
+			return
+		questions = self.client.CON.get_value(itr.guild, "questions")
 		if len(question) > 250:
-			return await ctx.respond("Too many characters! Questions mustn't be more than 250 characters.")
+			return await itr.response.send_message("Too many characters! Questions mustn't be more than 250 characters.")
 		if len([q for q in questions if q["question"] == question]) > 0:
-			return await ctx.respond("You can't send the same question as someone else.")
-		questions.append({ "question": question, "author": ctx.author.id, "id": generateID(questions) })
-		await self.client.CON.set_value(ctx.guild, "questions", questions)
-		await ctx.respond(embed=getComEmbed(ctx, self.client, f"Added question!"))
+			return await itr.response.send_message("You can't send the same question as someone else.")
+		questions.append({ "question": question, "author": itr.user.id, "id": generateID(questions) })
+		await self.client.CON.set_value(itr.guild, "questions", questions)
+		await itr.response.send_message(embed=getComEmbed(str(itr.user), self.client, f"Added question!"))
 
 	@qotdgroup.command(name="remove", description="Remove one of your questions from the daily questions, Mods can remove anyones question.")
-	@commands.dynamic_cooldown(cooldown_etc, commands.BucketType.user)
-	async def remove(self, ctx:AC,
-		questionid:Option(str, "The ID of question you want to remove.", required=True)
-	):	
-		if await command_checks(ctx, self.client, is_guild=True, has_value="qotd_channel"): return
-		questions = self.client.CON.get_value(ctx.guild, "questions")
+	@AC.describe(questionid="The ID of question you want to remove.")
+	@CM.dynamic_cooldown(cooldown_etc, CM.BucketType.user)
+	async def remove(self, itr:Itr, questionid:str):	
+		if not await ab_check(itr, self.client, is_guild=True, has_value="qotd_channel"):
+			return
+		questions = self.client.CON.get_value(itr.guild, "questions")
 		questions = [q for q in questions if q["id"] != questionid]
-		await self.client.CON.set_value(ctx.guild, "questions", questions)
-		await ctx.respond(embed=getComEmbed(ctx, self.client, f"Removed question!"))
-
-	'''@qotdgroup.command(name="convert", description="Add ID's to every question.")
-	async def convert(self, ctx:AC):	
-		if await command_checks(ctx, self.client, is_owner=True, is_guild=True, has_value="qotd_channel"): return
-		questions = self.client.CON.get_value(ctx.guild, "questions")
-		newquestions = []
-		for question in questions:
-			if "id" in question:
-				newquestions.append({ "question": question["question"], "author": question["author"], "id": question["id"] })
-			else:
-				newquestions.append({ "question": question["question"], "author": question["author"], "id": generateID(newquestions) })
-		await self.client.CON.set_value(ctx.guild, "questions", newquestions)
-		await ctx.respond(embed=getComEmbed(ctx, self.client, f"Converted question!"))'''
+		if not await ab_check_slient(itr, self.client, has_mod_role=True):
+			await itr.response.send_message(embed=getComEmbed(str(itr.user), self.client, f"You can't remove this question, make sure to only delete your own."))
+		else:
+			await self.client.CON.set_value(itr.guild, "questions", questions)
+			await itr.response.send_message(embed=getComEmbed(str(itr.user), self.client, f"Removed question!"))
 
 	@qotdgroup.command(name="post", description="Forcefully post a question.")
-	@commands.dynamic_cooldown(cooldown_etc, commands.BucketType.user)
-	async def post(self, ctx:AC,
-		testpost:Option(str, "If the question isn't removed from the questions list, useful for tests.", choices=["True", "False"], default="True")
-	):
-		if await command_checks(ctx, self.client, is_owner=True, is_guild=True, has_value="qotd_channel"): return
-		await self.askQuestion(tobool(testpost), ctx.guild)
-		await ctx.respond("Question has been askified.")
+	@AC.describe(testpost="If the question isn't removed from the questions list, useful for tests.")
+	@CM.dynamic_cooldown(cooldown_etc, CM.BucketType.user)
+	async def post(self, itr:Itr, testpost:Literal["True","False"]):
+		if not await ab_check(itr, self.client, is_owner=True, is_guild=True, has_value="qotd_channel"):
+			return
+		await self.askQuestion(tobool(testpost), itr.guild)
+		await itr.response.send_message("Question has been askified.")
 
-def setup(client):
-	client.add_cog(QOTDCog(client))
+def divide_chunks(l, n):
+	for i in range(0, len(l), n):
+		yield l[i:i + n]
+
+async def setup(client:AidanBot):
+	await client.add_cog(QOTDCog(client), guilds=client.debug_guilds)
