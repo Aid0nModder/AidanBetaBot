@@ -254,3 +254,13 @@ class AidanBot(commands.Bot):
 			await self.change_presence(activity=discord.Activity(name=content,type=activity_type))
 		except Exception:
 			await sendCustomError(self, "Staus Change", f"Status failed to change to: {activity_type} {content}")
+			
+	def itrFail():
+		if randint(1,6) == 1:
+			comebacks = [
+				"Did you try to poke my buttons? Sheeeeeesshh.", "Not your buttons! What a bruh moment.", "Sorry, you can't press this butt-on! :smirk:", "D-don't touch me user-san! O///O",
+				"This button can't be hit.\nDespite the fact it's lit.\nYou try and fail,\nTo make it sail,\nBut I do not give a shit.", "It takes like, 10 seconds to just run your own command."
+			]
+			return choice(comebacks)
+		else:
+			return "Sorry, you can't press this button!"
