@@ -83,8 +83,9 @@ class AidanBot(commands.Bot):
 			return
 
 		if message.guild:
-			if self.isbeta and message.channel.name == "aidanbetabot-talk":
-				return await self.replybot.on_message(message)
+			if self.isbeta:
+				if message.channel.name == "aidanbetabot-talk":
+					return await self.replybot.on_message(message)
 			else:
 				if await self.handle_invites(message): # remove invites
 					return
