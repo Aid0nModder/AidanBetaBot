@@ -134,7 +134,7 @@ class CoreCog(CM.Cog):
 						if page > len(pages)-1: page = 0
 					await itr.edit_original_response(embed=pages[page], view=getView())
 				else:
-					await butitr.response.send_message(self.client.itrFail())
+					await butitr.response.send_message(self.client.itrFail(), ephemeral=True)
 			except asyncio.TimeoutError:
 				return await itr.edit_original_response(view=getView(True))
 
