@@ -62,7 +62,7 @@ class FP():
 		if self.ailevel == "hard": return self.makeMoveHard()
 
 	def makeMoveEasy(self):
-		if self.heals > 0 and self.health <= 50 and randint(1, math.floor(self.health/10) == 1): return "heal"
+		if self.heals > 0 and self.health <= 50 and max(1,randint(1, math.floor(self.health/10)) == 1): return "heal"
 		if self.energy >= 7 and randint(self.energy,10) == 10: return "punch"
 		if self.energy >= 4 and randint(1,3) == 1: return "slap"
 		return "wait"
