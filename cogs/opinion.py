@@ -272,9 +272,9 @@ class OpinionCog(CM.Cog):
 		while True:
 			try:
 				seconds = ((start+datetime.timedelta(seconds=duration))-now()).seconds # but hacky but it works
-				butitr = await self.client.wait_for("interaction", timeout=seconds, check=check)
-				await butitr.response.defer()
+				butitr:Itr = await self.client.wait_for("interaction", timeout=seconds, check=check)
 
+				await butitr.response.defer()
 				if butitr.data["custom_id"] == "_revoke_":
 					if str(butitr.user.id) in votesusers:
 						votes[votesusers[str(butitr.user.id)]] -= 1
@@ -299,7 +299,6 @@ class OpinionCog(CM.Cog):
 				
 				embed, view = getPollEmbed()
 				await itr.edit_original_response(embed=embed, view=view)
-
 			except asyncio.TimeoutError:
 				embed, view = getPollEmbed(True)
 				await itr.edit_original_response(embed=embed, view=view)

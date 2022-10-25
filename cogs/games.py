@@ -3,7 +3,7 @@ import discord.ext.commands as CM
 import discord.app_commands as AC
 from discord import Interaction as Itr
 
-import asyncio
+import asyncio, datetime, json
 from random import choice
 from typing import Literal
 
@@ -22,6 +22,12 @@ from cogs.fightmodes.fight_classic import FP as C_FP
 class GamesCog(CM.Cog):
 	def __init__(self, client:AidanBot):
 		self.client = client
+
+		self.replay = AC.ContextMenu(name="Fight-replay", callback=self.fight_replay_msg)
+		self.client.tree.add_command(self.replay, guilds=self.client.debug_guilds)
+
+	async def cog_unload(self):
+		self.client.tree.remove_command(self.replay.name, type=self.replay.type)
 
 	async def canPlay(self, itr:Itr, user:discord.Member):
 		# not a bot and dnd enabled and no messages in last 5 messages.
@@ -94,7 +100,7 @@ class GamesCog(CM.Cog):
 			while True:
 				try:
 					butitr:Itr = await self.client.wait_for("interaction", timeout=30, check=check)
-					if butitr.user.id == player1.id:
+					if butitr.user == player1:
 						player1.pick = butitr.data["custom_id"]
 						await butitr.response.send_message(f"Pick set to {player1.getEmoji}!", ephemeral=True)
 					else:
@@ -137,13 +143,24 @@ class GamesCog(CM.Cog):
 			core = C_FMN(user1, user2, ailevel, ailevel1, ailevel2)
 			turn:C_FP = core.turn
 			turnt:C_FP = core.turnt
-			
+
+		LOG = {"version":"V0.2","embeds":[]}
+		def addLog(embed:discord.Embed):
+			LOG["embeds"].append(embed.to_dict())
+		def endLog():
+			with open("fightlog.json", "w+") as file:
+				json.dump(LOG, file, indent=4)
+
 		embed, view = core.getEmbed(itr, self.client, turn)
+		addLog(embed)
 		await itr.response.send_message(embed=embed, view=view)
 		MSG = await itr.original_response()
 
 		def check(checkitr:Itr):
-			return (checkitr.message.id == MSG.id and checkitr.user.id == turn.id)
+			try:
+				return (checkitr.message.id == MSG.id and checkitr.user.id == turn.id)
+			except:
+				return False
 		while True:
 			try:
 				move = ""
@@ -167,11 +184,16 @@ class GamesCog(CM.Cog):
 					if endid.endswith("-killself") or endid == "flee":
 						turn, turnt = core.swapTurn()
 					embed, view = core.getWinEmbed(itr, self.client, endid, turn, turnt)
+					addLog(embed)
+					endLog()
 					await itr.edit_original_response(embed=embed, view=view)
+					with open("fightlog.json", "rb") as file:
+						await itr.channel.send(file=discord.File(file,"fightlog.json"))
 					return
 
 				turn, turnt = core.swapTurn()
 				embed, view = core.getEmbed(itr, self.client, turn)
+				addLog(embed)
 				await itr.edit_original_response(embed=embed, view=view)
 
 			except asyncio.TimeoutError:
@@ -204,6 +226,71 @@ class GamesCog(CM.Cog):
 		if not ((itr.user == user1 or await self.canPlay(itr, user1)) and (itr.user == user2 or await self.canPlay(itr, user2))):
 			return
 		await self.fight(itr, "classic", user1, user2, ailevel, ailevel1, ailevel2)
+	
+	###
+
+	@gamesgroup.command(name="fight-replay", description="Replay a fight from a fightlog file!")
+	@AC.describe(logfile="The fightlog file to read from.")
+	@CM.dynamic_cooldown(cooldown_games, CM.BucketType.guild)
+	async def fight_replay_slash(self, itr:Itr, logfile:discord.Attachment):
+		await self.fight_replay(itr, logfile)
+
+	@CM.dynamic_cooldown(cooldown_games, CM.BucketType.guild)
+	async def fight_replay_msg(self, itr:Itr, msg:discord.Message):
+		if len(msg.attachments) > 0:
+			await self.fight_replay(itr, msg.attachments[0], True)
+		else:
+			await itr.response.send_message("The message you selected has no attachments.", ephemeral=True)
+
+	async def fight_replay(self, itr:Itr, logfile:discord.Attachment, app_command=False):
+		page, pages = 0, []
+		try:
+			byte = await logfile.read()
+			LOG = json.loads(byte.decode("utf-8"))
+			pages = [discord.Embed.from_dict(e) for e in LOG["embeds"]]
+		except:
+			if app_command:
+				return await itr.response.send_message("The attachment for the log file you inputted is incorrect! Make sure the log file is the first or only attachment then try again.", ephemeral=True)
+			else:
+				return await itr.response.send_message("The log file you inputted is incorrect! If you're on mobile i regret to inform you that it's impossible to upload logs on mobile. If you're on PC try again.", ephemeral=True)
+
+		def getView(timeout=False):
+			view = discord.ui.View(timeout=None)
+			view.add_item(discord.ui.Button(label="Start",                  style=discord.ButtonStyle.blurple, custom_id="start",   disabled=timeout))
+			view.add_item(discord.ui.Button(label="<-",                     style=discord.ButtonStyle.blurple, custom_id="left",    disabled=timeout))
+			view.add_item(discord.ui.Button(label=f"{page+1}/{len(pages)}", style=discord.ButtonStyle.gray,    custom_id="display", disabled=True))
+			view.add_item(discord.ui.Button(label="->",                     style=discord.ButtonStyle.blurple, custom_id="right",   disabled=timeout))
+			view.add_item(discord.ui.Button(label="End",                    style=discord.ButtonStyle.blurple, custom_id="end",     disabled=timeout))
+			return view
+		
+		await itr.response.send_message(embed=pages[page], view=getView())
+		MSG = await itr.original_response()
+
+		def check(checkitr:Itr):
+			try:
+				return (checkitr.message.id == MSG.id)
+			except:
+				return False
+		while True:
+			try:
+				butitr:Itr = await self.client.wait_for("interaction", timeout=30, check=check)
+				if butitr.user == itr.user:
+					await butitr.response.defer()
+					if butitr.data["custom_id"] == "left":
+						page -= 1
+						if page < 0: page = len(pages)-1
+					elif butitr.data["custom_id"] == "right":
+						page += 1
+						if page > len(pages)-1: page = 0
+					elif butitr.data["custom_id"] == "start":
+						page = 1
+					elif butitr.data["custom_id"] == "end":
+						page = len(pages)-1
+					await itr.edit_original_response(embed=pages[page], view=getView())
+				else:
+					await butitr.response.send_message(self.client.itrFail(), ephemeral=True)
+			except asyncio.TimeoutError:
+				return await itr.edit_original_response(view=getView(True))
 
 async def setup(client:AidanBot):
 	await client.add_cog(GamesCog(client), guilds=client.debug_guilds)

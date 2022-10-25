@@ -177,7 +177,7 @@ class FM():
 
 	deathmessages = {
 		"punch": "{turn} punched {turnt} into oblivion.",
-		"slapped": "{turnt} was slapped silly by {turn}.",
+		"slap": "{turnt} was slapped silly by {turn}.",
 		"flee": "{turnt} fled like a baby!"
 	}
 

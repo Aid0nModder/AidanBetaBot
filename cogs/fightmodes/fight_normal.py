@@ -22,8 +22,8 @@ class FP():
 		self.ailevel = ai
 
 		self.health = 100
-		self.energy = 3
-		self.mp = 3
+		self.energy = 2
+		self.mp = 2
 		self.multiplier = 1
 
 		self.defaultmultiplier = 1
@@ -93,7 +93,7 @@ class FP():
 		if self.mp > 0:
 			if self.mp == 3 and self.enemy.health <= 50: return "kamikaze"
 			if self.mp == 2 and (self.enemy.defending or self.enemy.mp > 1) and randint(1,2) == 2: return "pierce" # 50%
-			if self.mp == 1 and (self.health >= 40 or randint(1,3) == 3): return "attackup" # 33.3%
+			if self.mp == 1 and (self.health >= 40 or randint(1,3) == 3): return "attack_up" # 33.3%
 			if self.health <= self.energy*25 and randint(0,3) < self.energy: return "heal"
 		return "wait"
 	def makeMoveHard(self): # doesn't take any chances
@@ -107,13 +107,13 @@ class FP():
 		if self.energy > 0 and (not self.enemy.comboing) and self.enemy.energy == 0: return "defend"
 		if self.mp == 3 and self.enemy.health <= 50: return "kamikaze"
 		if self.mp == 2 and (15 > ushd or (self.enemy.mp > 1 and 10 > ushd)): return "pierce"
-		if self.mp == 1 and ushdplus >= self.enemy.health: return "attackup"
+		if self.mp == 1 and ushdplus >= self.enemy.health: return "attack_up"
 		return "wait"
 	def makeMoveRandom(self):
 		opt = ["wait"]
 		if self.energy > 0: opt.append("punch"); opt.append("defend")
 		if self.energy > 1: opt.append("combo")
-		if self.mp == 1: opt.append("attackup")
+		if self.mp == 1: opt.append("attack_up")
 		if self.mp == 2: opt.append("pierce")
 		if self.mp == 3: opt.append("kamikaze")
 		if self.mp > 0: opt.append("heal")
@@ -250,7 +250,7 @@ class FM():
 		view.add_item(discord.ui.Button( style=Style.red,      label=f"Defend [1]",            custom_id="defend",    row=0, disabled=(timeout or onee),  emoji="🛡️"))
 		view.add_item(discord.ui.Button( style=Style.gray,     label=f"Wait",                  custom_id="wait",      row=0, disabled=timeout,            emoji="🕐"))
 		view.add_item(discord.ui.Button( style=Style.gray,     label=f"Flee",                  custom_id="flee",      row=0, disabled=timeout,            emoji="✖️"))
-		view.add_item(discord.ui.Button( style=Style.blurple,  label=f"Attack-Up [1]",         custom_id="attackup", row=1, disabled=(timeout or one),   emoji="⏫"))
+		view.add_item(discord.ui.Button( style=Style.blurple,  label=f"Attack-Up [1]",         custom_id="attack_up", row=1, disabled=(timeout or one),   emoji="⏫"))
 		view.add_item(discord.ui.Button( style=Style.blurple,  label=f"Pierce [2]",            custom_id="pierce",    row=1, disabled=(timeout or two),   emoji="📍"))
 		view.add_item(discord.ui.Button( style=Style.blurple,  label=f"Kamikaze [3]",          custom_id="kamikaze",  row=1, disabled=(timeout or three), emoji="💥"))
 		view.add_item(discord.ui.Button( style=Style.green,    label=f"Heal [{max(curm,1)}]",  custom_id="heal",      row=1, disabled=(timeout or onem),  emoji="💓"))
@@ -277,7 +277,7 @@ class FM():
 		turn.defending, turn.energy = True, turn.energy-1
 		return [["turn","energy-",1]]
 
-	def attackup(self, turn:FP, turnt:FP):
+	def attack_up(self, turn:FP, turnt:FP):
 		turn.multiplier, turn.mp = turn.multiplier+0.5, turn.mp-1
 		return [["turn","multipliers"],["turn","mp-",1]]
 	def pierce(self, turn:FP, turnt:FP):

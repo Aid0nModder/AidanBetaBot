@@ -31,20 +31,22 @@ class AidanBot(commands.Bot):
 		super().__init__(command_prefix="$",intents=discord.Intents.all())
 
 	async def setup_hook(self):
-		self.CON = ConfigManager(self, "guild")
-		self.UCON = ConfigManager(self, "user")
-		self.replybot = replyBot(self)
+		if not self.offline:
+			self.CON = ConfigManager(self, "guild")
+			self.UCON = ConfigManager(self, "user")
+			self.replybot = replyBot(self)
 
-		for filename in os.listdir('./cogs'):
-			if filename.endswith('.py'):
-				await self.load_extension(f'cogs.{filename[:-3]}')
-		await self.tree.sync(guild=self.debug_guilds[0])
-		await self.tree.sync(guild=self.debug_guilds[1])
+			for filename in os.listdir('./cogs'):
+				if filename.endswith('.py'):
+					await self.load_extension(f'cogs.{filename[:-3]}')
+			for guild in self.debug_guilds:
+				await self.tree.sync(guild=guild)
 
 	async def on_ready(self):
 		if self.offline:
 			print(f"< Commands Cleared, logging out >")
 			await self.close()
+			return
 
 		profile = "main"
 		if self.user.id == 861571290132643850:
@@ -87,14 +89,15 @@ class AidanBot(commands.Bot):
 				if message.channel.name == "aidanbetabot-talk":
 					return await self.replybot.on_message(message)
 			else:
-				if await self.handle_invites(message): # remove invites
-					return
 				channels = self.CON.get_value(message.guild, "replybot_channel", guild=message.guild) # reply bot uwu
 				if channels and message.channel in channels:
 					return await self.replybot.on_message(message)
-				nitront = self.CON.get_value(message.guild, "nitront", guild=message.guild) # not so nitro or some s#it
-				if nitront and await self.handle_emojis(message):
-					return
+				if ab_check_slient(None, self, user=message.author, guild=message.guild, channel=message.channel, is_guild=True, bot_has_permission="manage_messages"):
+					if await self.handle_invites(message): # remove invites
+						return
+					nitront = self.CON.get_value(message.guild, "nitront", guild=message.guild) # not so nitro or some s#it
+					if nitront and await self.handle_emojis(message):
+						return
 
 	async def on_member_join(self, member:discord.Member):
 		if self.isbeta:
@@ -239,7 +242,7 @@ class AidanBot(commands.Bot):
 				"people stop using me :(", "{servercount} Servers!", "{membercount} Members!", "One Word Story: The Movie", "other bots suck!" ],
 			"streaming": [ "Polish Grass in 4K", "absolutely nothing", "the screams of my victims", "\"I may be stupid, but wtf\"", "1's and 0's across the interwebs", "something... but you'll never know :)", "and screaming" ],
 			"listening": [ "the waves going over the internet", "to Aidan's nonexistant future", "to my servers overheating", "to Aidan complain about bots for the {nthtime} time", "to everyone complain" ],
-			"competing": [ "a arm pit fart contest", "stuff with my brothers", "a war crimes simulator... in minecraft", "being better than Aidans Bots", "a stupid bot contest (I'm winning)" ],
+			"competing": [ "an arm pit fart contest", "stuff with my brothers", "a war crimes simulator... in minecraft", "being better than Aidans Bots", "a stupid bot contest (I'm winning)" ],
 		}
 		activity_type, group = choice(list(status.items()))
 
@@ -254,7 +257,7 @@ class AidanBot(commands.Bot):
 			await self.change_presence(activity=discord.Activity(name=content,type=activity_type))
 		except Exception:
 			await sendCustomError(self, "Staus Change", f"Status failed to change to: {activity_type} {content}")
-			
+
 	def itrFail(self):
 		if randint(1,6) == 1:
 			comebacks = [

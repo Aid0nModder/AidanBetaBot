@@ -26,27 +26,27 @@ def replaceWord(text, find, replace):
 
 def permissionStates(itr:Itr, client:AidanBot):
 	permissions = [
-		"view_channel","manage_channels","manage_roles","manage_emojis_and_stickers","view_audit_log","view_guild_insights","manage_webhooks","manage_guild", "create_instant_invite",
+		"read_messages","manage_channels","manage_roles","manage_emojis_and_stickers","view_audit_log","view_guild_insights","manage_webhooks","manage_guild", "create_instant_invite",
 		"change_nickname","manage_nicknames","kick_members","ban_members","moderate_members","send_messages","send_messages_in_threads","create_public_threads","create_private_threads",
 		"embed_links","attach_files","add_reactions","external_emojis","external_stickers","mention_everyone","manage_messages","manage_threads","read_message_history",
 		"send_tts_messages","use_application_commands","manage_events","administrator"
 	]
 	requiredperms = {
-		"view_channel": "Needed to send messages for commands",
+		"read_messages": "Needed to send messages for commands",
 		"manage_webhooks": "Needed to send messages as users for things like /clone and nitron't*",
 		"send_messages": "Needed to send messages for commands",
 		"send_messages_in_threads": "Needed to send messages for commands in threads",
 		"embed_links": "Needed to embed links in /echo and /issue*",
 		"external_emojis": "Needed to send private emojis for several commands including /opinion and /games, as well as nitron't",
 		"external_stickers": "Needed to send private stickers for nitron't",
-		"manage_messages": "Needed to delete messages with invites if remove_invites is enabled",
 		"read_message_history": "Needed to see past messages for /info"
 	}
 	optionalperms = {
 		"manage_roles":"If disabled /role and birthday_role will no longer be avalable",
 		"manage_guild":"If disabled guild invites wont be ignored if remove_invites is enabled",
 		"mention_everyone":"If disabled qotd_role will not work",
-		"attach_files":"If disabled /echo, /clone and nitron't will not have attachment support"
+		"attach_files":"If disabled /echo, /clone and nitron't will not have attachment support",
+		"manage_messages":"If disabled remove invites and emojin't won't be avalable"
 	}
 	unnecessaryperms = [
 		"manage_channels","manage_emojis_and_stickers","view_audit_log","view_guild_insights","create_instant_invite",
