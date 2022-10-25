@@ -252,7 +252,7 @@ class GamesCog(CM.Cog):
 			if app_command:
 				return await itr.response.send_message("The attachment for the log file you inputted is incorrect! Make sure the log file is the first or only attachment then try again.", ephemeral=True)
 			else:
-				return await itr.response.send_message("The log file you inputted is incorrect! If you're on mobile i regret to inform you that it's impossible to upload logs on mobile. If you're on PC try again.", ephemeral=True)
+				return await itr.response.send_message("The log file you inputted is incorrect! If you're on mobile use the message command games-replay or upload the file as a `.txt`. If you're on PC please try again.", ephemeral=True)
 
 		def getView(timeout=False):
 			view = discord.ui.View(timeout=None)
